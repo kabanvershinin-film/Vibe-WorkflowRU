@@ -23,5 +23,3 @@ services:
           name: vibe-workflow-server
           type: web
           property: host
-    dependsOn:
-      - vibe-workflow-server
