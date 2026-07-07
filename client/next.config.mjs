@@ -2,14 +2,13 @@
 const nextConfig = {
   output: 'standalone',
   transpilePackages: ['workflow-builder'],
-  async rewrites() {
-    const apiUrl = process.env.API_URL || 'http://localhost:8000';
-    return [
+  images: {
+    remotePatterns: [
       {
-        source: '/api/:path*',
-        destination: `${apiUrl}/api/:path*`,
+        protocol: 'https',
+        hostname: '**',
       },
-    ];
+    ],
   },
 };
 

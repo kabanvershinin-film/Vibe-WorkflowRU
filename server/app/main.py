@@ -1,5 +1,6 @@
 from pathlib import Path
 from dotenv import load_dotenv
+import os
 
 # Load environment variables from .env file
 # The .env file is located in the server/ directory
@@ -16,9 +17,10 @@ app.include_router(workflow_router.router, prefix="/api/workflow", tags=["workfl
 app.include_router(app_router.router, prefix="/api/app", tags=["app"])
 
 # Configure CORS
+allow_origins = os.getenv("ALLOW_ORIGINS", "*").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Next.js default port
+    allow_origins=allow_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

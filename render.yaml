@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: vibe-workflow-server
+    env: docker
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: ./server
+    plan: starter
+    envVars:
+      - key: MU_API_KEY
+        sync: false  # Установите это значение вручную в панели Render
+      - key: ALLOW_ORIGINS
+        value: "*"
+
+  - type: web
+    name: vibe-workflow-client
+    env: docker
+    dockerfilePath: ./client/Dockerfile
+    dockerContext: .
+    plan: starter
+    envVars:
+      - key: API_URL
+        fromService:
+          name: vibe-workflow-server
+          type: web
+          property: host
+    dependsOn:
+      - vibe-workflow-server

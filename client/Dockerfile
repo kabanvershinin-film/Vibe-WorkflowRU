@@ -22,8 +22,6 @@ RUN npm run build
 FROM deps AS builder
 COPY --from=builder-lib /app/packages/workflow-builder/dist ./packages/workflow-builder/dist
 COPY client ./client
-ARG API_URL=http://server:8000
-ENV API_URL=${API_URL}
 WORKDIR /app/client
 RUN npm run build
 
@@ -31,6 +29,15 @@ RUN npm run build
 FROM base AS production
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
+
+# Создаем стартовый скрипт
+RUN echo '#!/bin/sh' > /app/start.sh && \
+    echo 'if [ -z "$API_URL" ]; then' >> /app/start.sh && \
+    echo '  export API_URL="http://localhost:8000"' >> /app/start.sh && \
+    echo 'fi' >> /app/start.sh && \
+    echo 'echo "Using API_URL: $API_URL"' >> /app/start.sh && \
+    echo 'exec node client/server.js' >> /app/start.sh && \
+    chmod +x /app/start.sh
 
 COPY --from=builder --chown=nextjs:nodejs /app/client/.next/standalone ./
 COPY --from=builder /app/client/public ./client/public
@@ -44,4 +51,4 @@ ENV HOSTNAME="0.0.0.0"
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
 
-CMD ["node", "client/server.js"]
+CMD ["/app/start.sh"]
