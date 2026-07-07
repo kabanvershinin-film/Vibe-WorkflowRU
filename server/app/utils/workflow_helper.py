@@ -58,6 +58,75 @@ async def proxy_request_helper(method: str, url: str, payload: Optional[dict] = 
         logger.warning(f"Remote server returned {response.status_code}: {error_detail}")
         raise HTTPException(status_code=response.status_code, detail=error_detail)
 
+async def run_grsai_node_helper(payload: dict):
+    """
+    Handle GRSai API node directly (gpt-image-2, gpt-image-2-vip, Nano Banana)
+    """
+    params = payload.get("params", {})
+    
+    base_url = params.get("base_url", "grsaiapi.com")
+    api_key = params.get("api_key")
+    model = params.get("model")
+    prompt = params.get("prompt")
+    images = params.get("images", [])
+    aspect_ratio = params.get("aspectRatio", "1024x1024")
+    reply_type = params.get("replyType", "json")
+
+    if not api_key:
+        raise HTTPException(status_code=400, detail="GRSai API key is required")
+    if not model:
+        raise HTTPException(status_code=400, detail="Model is required")
+    if not prompt:
+        raise HTTPException(status_code=400, detail="Prompt is required")
+
+    url = f"https://{base_url}/v1/api/generate"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}"
+    }
+    grsai_payload = {
+        "model": model,
+        "prompt": prompt,
+        "images": images,
+        "aspectRatio": aspect_ratio,
+        "replyType": reply_type
+    }
+
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(url, json=grsai_payload, headers=headers, timeout=120.0)
+        except httpx.RequestError as e:
+            logger.error(f"GRSai Request Error: {e}")
+            raise HTTPException(status_code=500, detail=f"Error contacting GRSai: {str(e)}")
+
+    try:
+        resp_json = response.json()
+    except ValueError:
+        raise HTTPException(status_code=500, detail=f"Invalid response from GRSai: {response.text}")
+
+    if response.status_code != 200:
+        error_detail = resp_json.get("error", str(resp_json))
+        raise HTTPException(status_code=response.status_code, detail=f"GRSai error: {error_detail}")
+
+    # Convert GRSai response to workflow output format
+    outputs = []
+    if resp_json.get("status") == "succeeded":
+        for result in resp_json.get("results", []):
+            if result.get("url"):
+                outputs.append({
+                    "type": "image",
+                    "value": result["url"]
+                })
+    elif resp_json.get("status") == "failed":
+        error_msg = resp_json.get("error", "Unknown error from GRSai")
+        raise HTTPException(status_code=400, detail=error_msg)
+
+    return {
+        "status": "succeeded",
+        "outputs": outputs,
+        "grsai_response": resp_json
+    }
+
 async def create_or_update_workflow(payload: dict):
     url = "https://api.muapi.ai/workflow/create"
     return await proxy_request_helper("POST", url, payload)
@@ -95,6 +164,11 @@ async def get_run_status_helper(run_id: str):
     return await proxy_request_helper("GET", url)
 
 async def run_node_helper(workflow_id: str, node_id: str, payload: dict):
+    # Check if this is a GRSai node and handle directly
+    if payload.get("model") == "grsai":
+        return await run_grsai_node_helper(payload)
+    
+    # Otherwise proxy to muapi.ai
     url = f"https://api.muapi.ai/workflow/{workflow_id}/node/{node_id}/run"
     return await proxy_request_helper("POST", url, payload)
 

@@ -818,6 +818,63 @@ export const apiNodeModels = [
       },
       required: ["uid", "api_key", "category", "subcategory"]
     }
+  },
+  {
+    id: "grsai",
+    name: "GRSai API",
+    input_params: {
+      properties: {
+        "base_url": {
+          "description": "API Base URL (grsaiapi.com или grsai.dakka.com.cn)",
+          "type": "string",
+          "format": "text",
+          "default": "grsaiapi.com",
+          "required": true
+        },
+        "api_key": {
+          "description": "GRSai API Key (from https://grsai.ai/zh/dashboard/api-keys)",
+          "type": "string",
+          "format": "text",
+          "required": true
+        },
+        "model": {
+          "description": "Model name (gpt-image-2 или gpt-image-2-vip)",
+          "type": "string",
+          "enum": ["gpt-image-2", "gpt-image-2-vip"],
+          "default": "gpt-image-2",
+          "required": true
+        },
+        "prompt": {
+          "description": "Prompt for image generation",
+          "type": "string",
+          "format": "text",
+          "required": true
+        },
+        "images": {
+          "description": "Reference images (URLs or base64)",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "required": false
+        },
+        "aspectRatio": {
+          "description": "Aspect ratio or resolution (e.g. 1024x1024, 16:9)",
+          "type": "string",
+          "default": "1024x1024",
+          "required": false
+        },
+        "replyType": {
+          "description": "Response type (json, stream, async)",
+          "type": "string",
+          "enum": ["json", "stream", "async"],
+          "default": "json",
+          "required": false
+        }
+      },
+      required: ["base_url", "api_key", "model", "prompt"]
+    }
   }
 ];
 
