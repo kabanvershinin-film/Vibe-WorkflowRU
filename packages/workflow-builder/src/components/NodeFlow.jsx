@@ -223,9 +223,87 @@ const NodeFlow = ({ initialNodeSchemas, initialWorkflowData }) => {
   const params = useParams();
   const { id } = params;
 
+  // Моковые nodeSchemas для демо-режима
+  const mockNodeSchemas = {
+    categories: {
+      text: {
+        models: {
+          "text-passthrough": {
+            input_params: {
+              properties: {
+                prompt: {
+                  type: "string",
+                  title: "Prompt"
+                }
+              },
+              required: ["prompt"]
+            }
+          }
+        }
+      },
+      image: {
+        models: {
+          "image-passthrough": {
+            input_params: {
+              properties: {
+                image_url: {
+                  type: "string",
+                  title: "Image URL",
+                  field: "image"
+                }
+              },
+              required: ["image_url"]
+            }
+          }
+        }
+      },
+      video: {
+        models: {
+          "video-passthrough": {
+            input_params: {
+              properties: {
+                video_url: {
+                  type: "string",
+                  title: "Video URL",
+                  field: "video"
+                }
+              },
+              required: ["video_url"]
+            }
+          }
+        }
+      },
+      audio: {
+        models: {
+          "audio-passthrough": {
+            input_params: {
+              properties: {
+                audio_url: {
+                  type: "string",
+                  title: "Audio URL",
+                  field: "audio"
+                }
+              },
+              required: ["audio_url"]
+            }
+          }
+        }
+      },
+      utility: {
+        models: {
+          "prompt-concatenator": {},
+          "video-combiner": {}
+        }
+      },
+      api: {
+        models: {}
+      }
+    }
+  };
+
   // Pre-calculate initial state if data is provided
   const initialState = useMemo(() => {
-    return processWorkflowData(initialWorkflowData, initialNodeSchemas, id);
+    return processWorkflowData(initialWorkflowData, initialNodeSchemas || mockNodeSchemas, id);
   }, [initialWorkflowData, initialNodeSchemas, id]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialState?.nodes || []);
@@ -238,14 +316,14 @@ const NodeFlow = ({ initialNodeSchemas, initialWorkflowData }) => {
   const [workflowId, setWorkflowId] = useState(id);
   const [runId, setRunId] = useState(initialState?.metadata?.runId || null);
   const [hasFit, setHasFit] = useState(false);
-  const [nodeSchemas, setNodeSchemas] = useState(initialNodeSchemas || {});
+  const [nodeSchemas, setNodeSchemas] = useState(initialNodeSchemas || mockNodeSchemas);
   const [contextMenu, setContextMenu] = useState(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [draggedEdgeInfo, setDraggedEdgeInfo] = useState(null);
   const [edgePicker, setEdgePicker] = useState(null);
   const connectionMadeRef = useRef(false);
   const onConnectRef = useRef(null);
-  const [interactionMode, setInteractionMode] = useState(initialState?.metadata?.interactionMode || false);
+  const [interactionMode, setInteractionMode] = useState(true); // Включаем редактирование по умолчанию
   const [publishWorkflow, setPublishWorkflow] = useState(initialState?.metadata?.publishWorkflow || false);
   const [template, setTemplate] = useState(initialState?.metadata?.template || {
     showTemplateBtn: false,

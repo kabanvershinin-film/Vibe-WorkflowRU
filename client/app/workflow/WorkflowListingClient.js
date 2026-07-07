@@ -101,22 +101,8 @@ const WorkflowListingClient = ({ initialWorkflowList }) => {
   };
 
   const handleCreateWorkFlow = () => {
-    const workflowPayload = {
-      workflow_id: null,
-      name: "Untitled Workflow",
-      edges: [],
-      data: { nodes: [] },
-    };
-    setLoading(true);
-    axios.post("/api/workflow/create", workflowPayload)
-      .then((response) => {
-        window.location.href = `/workflow/${response.data.workflow_id}`;
-      })
-      .catch((error) => {
-        console.error(error);
-        setLoading(false);
-        toast.error(error.response?.data?.detail || "Server error");
-      });
+    // Просто переходим на демо-воркфлоу, без запроса к серверу
+    window.location.href = `/workflow/demo`;
   };
 
   return (
