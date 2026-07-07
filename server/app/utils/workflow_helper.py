@@ -3,27 +3,35 @@ import httpx
 import logging
 from fastapi import HTTPException
 from typing import Optional
-
 from pathlib import Path
+from ..config import settings
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-MU_API_KEY = os.getenv("MU_API_KEY")
-
 async def get_api_key():
-    api_key = MU_API_KEY
+    if settings.PROVIDER == "grsai":
+        api_key = settings.GRSAI_API_KEY
+    else:
+        api_key = settings.MU_API_KEY
     if not api_key:
-        raise HTTPException(status_code=400, detail="Setup MU_API_KEY in .env to be able to use Workflow")
+        raise HTTPException(status_code=400, detail=f"Setup {settings.PROVIDER.upper()}_API_KEY in .env to use {settings.PROVIDER} provider")
     return api_key
 
 async def proxy_request_helper(method: str, url: str, payload: Optional[dict] = None):
     api_key = await get_api_key()
-    headers = {
-        "Content-Type": "application/json",
-        "x-api-key": api_key,
-    }
+    
+    if settings.PROVIDER == "grsai":
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+        }
+    else:
+        headers = {
+            "Content-Type": "application/json",
+            "x-api-key": api_key,
+        }
 
     async with httpx.AsyncClient() as client:
         try:
@@ -64,8 +72,8 @@ async def run_grsai_node_helper(payload: dict):
     """
     params = payload.get("params", {})
     
-    base_url = params.get("base_url", "grsaiapi.com")
-    api_key = params.get("api_key")
+    base_url = params.get("base_url", settings.GRSAI_BASE_URL.replace("https://", ""))
+    api_key = params.get("api_key", settings.GRSAI_API_KEY)
     model = params.get("model")
     prompt = params.get("prompt")
     images = params.get("images", [])
@@ -128,39 +136,97 @@ async def run_grsai_node_helper(payload: dict):
     }
 
 async def create_or_update_workflow(payload: dict):
-    url = "https://api.muapi.ai/workflow/create"
+    if settings.PROVIDER == "grsai":
+        # Mock GRSai create workflow (or use your own endpoints)
+        return {
+            "id": "demo",
+            "name": payload.get("name", "Demo Workflow"),
+            "nodes": payload.get("nodes", []),
+            "edges": payload.get("edges", [])
+        }
+    url = f"{settings.MU_API_BASE}/workflow/create"
     return await proxy_request_helper("POST", url, payload)
 
 async def get_node_schemas_helper(workflow_id: str):
-    url = f"https://api.muapi.ai/workflow/{workflow_id}/node-schemas"
+    if settings.PROVIDER == "grsai":
+        # Mock node schemas for GRSai
+        return {
+            "image_models": [
+                {"id": "image-passthrough", "name": "Input Image", "input_params": {"properties": {"image_url": {"type": "string"}}, "required": []}},
+                {"id": "nano-banana", "name": "Nano Banana", "input_params": {"properties": {"prompt": {"type": "string"}}, "required": ["prompt"]}},
+            ],
+            "video_models": [],
+            "text_models": [{"id": "text-passthrough", "name": "Input Text", "input_params": {"properties": {"prompt": {"type": "string"}}, "required": []}}],
+            "audio_models": [],
+            "concat_models": [{"id": "prompt-concatenator", "name": "Prompt Concatenator", "input_params": {"properties": {"prompt": {"type": "string"}}, "required": []}}],
+            "video_combiner_models": []
+        }
+    url = f"{settings.MU_API_BASE}/workflow/{workflow_id}/node-schemas"
     return await proxy_request_helper("GET", url)
 
 async def get_api_node_schemas_helper(workflow_id: str):
-    url = f"https://api.muapi.ai/workflow/{workflow_id}/api-node-schemas"
+    if settings.PROVIDER == "grsai":
+        # Mock API node schemas for GRSai
+        return {
+            "api_node_models": [
+                {"id": "grsai", "name": "GRSai API", "input_params": {"properties": {
+                    "base_url": {"type": "string", "default": settings.GRSAI_BASE_URL.replace("https://", "")},
+                    "api_key": {"type": "string"},
+                    "model": {"type": "string", "enum": ["gpt-image-2", "gpt-image-2-vip"], "default": "gpt-image-2"},
+                    "prompt": {"type": "string"},
+                    "images": {"type": "array", "default": []},
+                    "aspectRatio": {"type": "string", "default": "1024x1024"},
+                    "replyType": {"type": "string", "enum": ["json", "stream", "async"], "default": "json"},
+                }, "required": ["model", "prompt"]}}
+            ]
+        }
+    url = f"{settings.MU_API_BASE}/workflow/{workflow_id}/api-node-schemas"
     return await proxy_request_helper("GET", url)
 
 async def get_workflow_def_helper(workflow_id: str):
-    url = f"https://api.muapi.ai/workflow/get-workflow-def/{workflow_id}"
+    if settings.PROVIDER == "grsai":
+        # Mock workflow def for GRSai
+        return {
+            "id": "demo",
+            "name": "Demo Workflow",
+            "nodes": [],
+            "edges": [],
+            "data": {"nodes": []}
+        }
+    url = f"{settings.MU_API_BASE}/workflow/get-workflow-def/{workflow_id}"
     return await proxy_request_helper("GET", url)
 
 async def get_workflow_defs_helper():
-    url = "https://api.muapi.ai/workflow/get-workflow-defs"
+    if settings.PROVIDER == "grsai":
+        # Mock workflows for GRSai
+        return []
+    url = f"{settings.MU_API_BASE}/workflow/get-workflow-defs"
     return await proxy_request_helper("GET", url)
 
 async def delete_workflow_def_by_id(workflow_id: str):
-    url = f"https://api.muapi.ai/workflow/delete-workflow-def/{workflow_id}"
+    if settings.PROVIDER == "grsai":
+        return {"status": "ok"}
+    url = f"{settings.MU_API_BASE}/workflow/delete-workflow-def/{workflow_id}"
     return await proxy_request_helper("DELETE", url)
 
 async def update_workflow_name_helper(workflow_id: str, payload: dict):
-    url = f"https://api.muapi.ai/workflow/update-name/{workflow_id}"
+    if settings.PROVIDER == "grsai":
+        return {"id": workflow_id, "name": payload.get("name", "Demo")}
+    url = f"{settings.MU_API_BASE}/workflow/update-name/{workflow_id}"
     return await proxy_request_helper("POST", url, payload)
 
 async def run_workflow_helper(workflow_id: str, payload: dict):
-    url = f"https://api.muapi.ai/workflow/{workflow_id}/run"
+    if settings.PROVIDER == "grsai":
+        # Mock run workflow for GRSai
+        return {"run_id": "demo-run-1"}
+    url = f"{settings.MU_API_BASE}/workflow/{workflow_id}/run"
     return await proxy_request_helper("POST", url, payload)
 
 async def get_run_status_helper(run_id: str):
-    url = f"https://api.muapi.ai/workflow/run/{run_id}/status"
+    if settings.PROVIDER == "grsai":
+        # Mock run status for GRSai
+        return {"nodes": {}}
+    url = f"{settings.MU_API_BASE}/workflow/run/{run_id}/status"
     return await proxy_request_helper("GET", url)
 
 async def run_node_helper(workflow_id: str, node_id: str, payload: dict):
@@ -168,60 +234,100 @@ async def run_node_helper(workflow_id: str, node_id: str, payload: dict):
     if payload.get("model") == "grsai":
         return await run_grsai_node_helper(payload)
     
+    # If provider is GRSai, and model is image model, use GRSai as fallback
+    if settings.PROVIDER == "grsai" and payload.get("model"):
+        # Wrap the payload into GRSai node
+        grsai_payload = {
+            "model": "grsai",
+            "params": {
+                "model": "gpt-image-2",
+                "prompt": payload.get("params", {}).get("prompt", "test"),
+                "base_url": settings.GRSAI_BASE_URL.replace("https://", ""),
+                "api_key": settings.GRSAI_API_KEY,
+            }
+        }
+        return await run_grsai_node_helper(grsai_payload)
+    
     # Otherwise proxy to muapi.ai
-    url = f"https://api.muapi.ai/workflow/{workflow_id}/node/{node_id}/run"
+    url = f"{settings.MU_API_BASE}/workflow/{workflow_id}/node/{node_id}/run"
     return await proxy_request_helper("POST", url, payload)
 
 async def publish_workflow_helper(workflow_id: str, payload: dict):
-    url = f"https://api.muapi.ai/workflow/workflow/{workflow_id}/publish"
+    if settings.PROVIDER == "grsai":
+        return {"status": "ok"}
+    url = f"{settings.MU_API_BASE}/workflow/workflow/{workflow_id}/publish"
     return await proxy_request_helper("POST", url, payload)
 
 async def template_workflow_helper(workflow_id: str, payload: dict):
-    url = f"https://api.muapi.ai/workflow/workflow/{workflow_id}/template"
+    if settings.PROVIDER == "grsai":
+        return {"status": "ok"}
+    url = f"{settings.MU_API_BASE}/workflow/workflow/{workflow_id}/template"
     return await proxy_request_helper("POST", url, payload)
 
 async def cloudfront_signed_url_helper(payload: dict):
-    url = "https://api.muapi.ai/workflow/cloudfront-signed-url"
+    if settings.PROVIDER == "grsai":
+        return {"signed_url": payload.get("url", "")}
+    url = f"{settings.MU_API_BASE}/workflow/cloudfront-signed-url"
     return await proxy_request_helper("POST", url, payload)
 
 async def generate_thumbnail_helper(workflow_id: str, payload: dict):
-    url = f"https://api.muapi.ai/workflow/{workflow_id}/thumbnail"
+    if settings.PROVIDER == "grsai":
+        return {"status": "ok"}
+    url = f"{settings.MU_API_BASE}/workflow/{workflow_id}/thumbnail"
     return await proxy_request_helper("POST", url, payload)
 
 async def get_file_upload_url_helper(params: dict):
+    if settings.PROVIDER == "grsai":
+        return {"url": ""}
     import urllib.parse
     query_string = urllib.parse.urlencode(params)
-    url = f"https://api.muapi.ai/app/get_file_upload_url?{query_string}"
+    url = f"{settings.MU_API_BASE}/app/get_file_upload_url?{query_string}"
     return await proxy_request_helper("GET", url)
 
 async def get_workflow_last_run(workflow_id: str):
-    url = f"https://api.muapi.ai/workflow/get-workflow-last-run/{workflow_id}"
+    if settings.PROVIDER == "grsai":
+        return None
+    url = f"{settings.MU_API_BASE}/workflow/get-workflow-last-run/{workflow_id}"
     return await proxy_request_helper("GET", url)
 
 async def architect_workflow_helper(payload: dict):
-    url = "https://api.muapi.ai/workflow/architect"
+    if settings.PROVIDER == "grsai":
+        return {"id": "demo-architect-1"}
+    url = f"{settings.MU_API_BASE}/workflow/architect"
     return await proxy_request_helper("POST", url, payload)
 
 async def poll_architect_result_helper(id: str):
-    url = f"https://api.muapi.ai/workflow/poll-architect/{id}/result"
+    if settings.PROVIDER == "grsai":
+        return {"status": "ok"}
+    url = f"{settings.MU_API_BASE}/workflow/poll-architect/{id}/result"
     return await proxy_request_helper("GET", url)
 
 async def delete_node_run_by_id_helper(node_run_id: str):
-    url = f"https://api.muapi.ai/workflow/node-run/{node_run_id}"
+    if settings.PROVIDER == "grsai":
+        return {"status": "ok"}
+    url = f"{settings.MU_API_BASE}/workflow/node-run/{node_run_id}"
     return await proxy_request_helper("DELETE", url)
 
 async def update_workflow_category_helper(workflow_id: str, payload: dict):
-    url = f"https://api.muapi.ai/workflow/update-category/{workflow_id}"
+    if settings.PROVIDER == "grsai":
+        return {"status": "ok"}
+    url = f"{settings.MU_API_BASE}/workflow/update-category/{workflow_id}"
     return await proxy_request_helper("POST", url, payload)
 
 async def get_workflow_api_inputs_helper(workflow_id: str):
-    url = f"https://api.muapi.ai/workflow/{workflow_id}/api-inputs"
+    if settings.PROVIDER == "grsai":
+        return {}
+    url = f"{settings.MU_API_BASE}/workflow/{workflow_id}/api-inputs"
     return await proxy_request_helper("GET", url)
 
 async def execute_workflow_via_api_helper(workflow_id: str, payload: dict):
-    url = f"https://api.muapi.ai/workflow/{workflow_id}/api-execute"
+    if settings.PROVIDER == "grsai":
+        return {"status": "ok"}
+    url = f"{settings.MU_API_BASE}/workflow/{workflow_id}/api-execute"
     return await proxy_request_helper("POST", url, payload)
 
 async def get_workflow_api_outputs_helper(run_id: str):
-    url = f"https://api.muapi.ai/workflow/run/{run_id}/api-outputs"
+    if settings.PROVIDER == "grsai":
+        return {}
+    url = f"{settings.MU_API_BASE}/workflow/run/{run_id}/api-outputs"
     return await proxy_request_helper("GET", url)
